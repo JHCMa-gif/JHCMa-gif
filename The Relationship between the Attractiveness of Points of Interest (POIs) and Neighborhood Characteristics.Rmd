@@ -1,5 +1,5 @@
 ---
-title: "MINI 4"
+title: "The Relationship between the Attractiveness of Points of Interest (POIs) and Neighborhood Characteristics"
 author: "JasmineHCMa"
 date: "2024-10-09"
 output: html_document
