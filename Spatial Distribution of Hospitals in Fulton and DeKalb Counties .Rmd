@@ -1,5 +1,5 @@
 ---
-title: "MINI 3"
+title: "Spatial Distribution of Hospitals in Fulton and DeKalb Counties"
 author: "Hsu-Chieh (Jasmine) Ma"
 date: "2024-09-30"
 output: html_document
