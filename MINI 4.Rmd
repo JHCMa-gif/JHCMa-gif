@@ -1,0 +1,123 @@
+---
+title: "MINI 4"
+author: "JasmineHCMa"
+date: "2024-10-09"
+output: html_document
+---
+
+<br><br><br>
+
+##### Since Yelp data is already arranged into a csv file, we only have to import **tidyverse()** here in the fisrt chunk. There are 363 observations in the csv file.
+```{r Environment Setup}
+# Load required libraries
+library(tidyverse)
+# Read the CSV file
+data <- read.csv("C:\\Users\\jasmi\\Downloads\\coffee.csv")
+# Check the structure to ensure all variables are visible
+str(data)
+# Remove missing values
+data <- data %>% drop_na()
+```
+##### In this section, we are going to generate the 4 required graphs/charts as the instruction mentioned, Boxplot, Faceted Boxplot, Colored Scatterplot, and Scatterplot Matrix, separately.
+
+
+<br><br><br>
+
+### **Boxplot**
+##### In each box, the line on bottom, middle and top represents 25th, 50th (median as well) and 75th percentile.Dots outside the box and along with the whiskers are *outliers*, which are values more than 1.5 times the *interquartile range (IQR)* away from the Q2 and Q3.
+```{r Box-pt}
+# Measurement: avg_rating & hhincome
+ggplot(data, aes(x = factor(avg_rating), y = hhincome)) +
+  geom_boxplot() +
+  labs(title = "Household Income vs. Yelp Ratings",
+       x = "Avg. Yelp Rating",
+       y = "Med. Annual Household Income") +
+  theme_minimal()
+```
+
+#### **Graph Interpretation**
+##### The objects on this respectively represents as follows:
+##### Outlier:In the same rating category, a business (cafe)has a significantly higher/lower household income compared to the majority.
+##### Whisker: Represents the range of household incomes that fall within 1.5 times the interquartile range (IQR) from the 25th to the 75th percentile for each business rating category.
+
+<br>
+
+##### 1. **Median Income**: The median household income is highest for ratings of **3 and 4** stars.
+##### 2. **Income Variability**: The widest IQR occurs for businesses with a rating of **4 stars**, indicating the greatest variability in household income.
+##### 3. **Outliers**: Outliers, particularly higher household incomes (above $150,000), are present in the 2, 3, and 4-star rating groups.
+##### 4. **Low Variability**: Ratings of **1 and 5 stars** show relatively narrow IQRs, indicating less variability in household income for these groups.
+
+<br><br><br>
+
+### **Faceted Box Plot**
+##### Basically similar to normal box plot, but displaying multiple box plots, which are in the same category together, in order to looking for the variance, consistency and any other feature among other groups.
+```{r Faceted-Box-pt}
+# Measurement: county
+ggplot(data, aes(x = factor(avg_rating), y = hhincome)) +
+  geom_boxplot() +
+  facet_wrap(~ county) +
+  labs(title = "Income and Yelp Ratings by County",
+       x = "Avg. Yelp Rating",
+       y = "Med. Household Income") +
+  theme_minimal()
+```
+
+#### **Graph Interpretation**
+##### 1. **Income Variability**:**Cobb County** and **Fulton County** display wider IQRs in the higher rating (4 and 5 stars) categories, indicating greater variability in household income for those businesses.**Clayton County** shows the least variability in income, with narrow IQRs across all ratings.
+##### 2. **Outliers**:Outliers are present in most counties and ratings, particularly in **Cobb**, **DeKalb**, and **Fulton** counties.
+##### 3. **Income Consistency**:**Clayton County** has the most consistent household income across all rating categories, with little variation in both median and IQR.
+
+<br><br><br>
+
+### **Scatterplot**
+##### Visualizing the relationship between *two continuous variables*. Each point on the scatterplot represents an observation from the dataset, with independent and dependent variables plotted on the x and y-axis separately.
+```{r Scatterplot}
+# Measurement: review count (log) vs household income; colored by pct_white, faceted by county
+ggplot(data, aes(x = review_count_log, y = hhincome, color = pct_white)) +
+  geom_point(alpha = 0.7) +
+  facet_wrap(~ county) +
+  scale_color_gradient(low = "skyblue2", high = "orange2") +
+  labs(title = "Review Count vs. Income by County",
+       x = "Log of Review Count",
+       y = "Med. Annual Household Income",
+       color = "Pct White") +
+  theme_minimal()
+```
+
+#### **Graph Interpretation**
+##### The scatterplots shows the relationship between the log of review count (x-axis) and median household income (y-axis), with color representing the percentage of white residents (pct_white). For a distinct review count category of each county, more dots would fall in the skyblue range if that category has relative more non-white residents.
+##### Across all counties, businesses in neighborhoods with more non-white residents (blue-turquoise) are consistently linked to lower median household incomes, generally below $100,000, regardless of Yelp rating or county.
+
+<br>
+
+##### 1. **Income Distribution**:**Fulton County** shows the widest range of incomes, while Clayton County is concentrated at lower income levels. DeKalb County has a balanced distribution with fewer extreme income outliers.
+##### 2. **Pct_White Distribution**:**Fulton and DeKalb** have mixed color distributions (blue to orange), reflecting relatively **higher demographic diversity**. We could see that Cobb county has the highest share of white residents among 5 counties, whereas Clayton is the least.
+##### 3. **Review Count Variability**:**Fulton and Cobb** show greater variability in review counts, with a wider spread across the x-axis. Gwinnett and Clayton have lower variability, indicating more consistency in business review counts.
+<br><br><br>
+
+### **Scatterplot Matrix**
+##### Visualizing the pairwise relationships between multiple variables in a dataset. Each panel in the matrix shows a scatterplot for a different pair of variables, allowing for a comprehensive view of correlations and patterns across all variables simultane
+```{r Scatterplot-mtx}
+# Measurement: reshape data for scatterplot matrix
+data_long <- data %>%
+  pivot_longer(cols = c(hhincome_log, pct_pov_log, pct_white, pop),
+               names_to = "characteristic", values_to = "value")
+
+# Scatterplot matrix
+ggplot(data_long, aes(x = review_count_log, y = value, color = county)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE) +
+  facet_wrap(~ characteristic, scales = "free") +
+  labs(title = "Review Count vs Neighborhood Characteristics",
+       x = "Log of Review Count",
+       y = "Values",
+       color = "County") +
+  theme_minimal()
+
+```
+
+#### **Graph Interpretation**
+##### 1. **Income Log (hhincome_log)**: There is a slight upward trend across most counties, indicating a **positive relationship** between review count and household income, with **Fulton and Gwinnett** counties showing the strongest positive slope.
+##### 2. **Poverty Rate Log (pct_pov_log)**:For most counties, there is a slight downward trend, showing a **negative correlation** between review count and poverty rate, with **DeKalb and Gwinnett** counties displaying stronger negative slopes.
+##### 3. **Percentage of White Residents (pct_white)**: There is a **positive trend** between review count and the percentage of white residents in Fulton, Cobb, and Gwinnett counties. **Clayton County** shows little variation with a nearly flat slope, indicating lower proportions of white residents regardless of review count.
+##### 4. **Population (pop)**: No significant trend is observed in most counties, but **Gwinnett County** shows a slight positive relationship between population and review count. Other counties have more scattered points with little pattern.

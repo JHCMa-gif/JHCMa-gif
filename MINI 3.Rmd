@@ -1,0 +1,160 @@
+---
+title: "MINI 3"
+author: "Hsu-Chieh (Jasmine) Ma"
+date: "2024-09-30"
+output: html_document
+---
+```{r setup, include=FALSE}
+# Set CRAN mirror
+options(repos = c(CRAN = "https://cloud.r-project.org/"))
+
+# Load knitr options to show code output
+knitr::opts_chunk$set(echo = TRUE)
+
+# Load libraries
+library(tidycensus)
+library(sf)
+library(tidyverse)
+library(ggplot2)
+library(httr)
+library(jsonlite)
+
+# Set Census API Key
+census_api_key("71bbbb84546221d6b8404af5a411d009ba4fb40fc", install = TRUE, overwrite = TRUE)
+
+# Load .Renviron to ensure the API key is available
+readRenviron("~/.Renviron")
+Sys.getenv("CENSUS_API_KEY")
+```
+
+
+## Data prep: fetching Census data
+```{r Fetch-Census-Data}
+income_data <- get_acs(
+  geography = "tract", 
+  variables = "B19013_001",  # Median household income
+  state = "GA", 
+  county = c("Fulton", "DeKalb"), 
+  year = 2020, 
+  geometry = TRUE
+)
+print(head(income_data))
+class(income_data)
+stopifnot(exists("income_data"))
+```
+
+## Read POI data
+```{r POI Prep-and-Read}
+# Read POI data
+poi_url <- "https://raw.githubusercontent.com/ujhwang/urban-analytics-2024/main/Assignment/mini_3/yelp_hospital.geojson"
+hospital_poi <- st_read(poi_url)
+
+# Check if latitude and longitude are valid
+summary(hospital_poi$coordinates.latitude)
+summary(hospital_poi$coordinates.longitude)
+
+# Remove rows with missing latitude or longitude
+hospital_poi_sf <- hospital_poi[!is.na(hospital_poi$coordinates.longitude) & !is.na(hospital_poi$coordinates.latitude), ]
+
+# Ensure the CRS and transformation are properly assigned
+hospital_poi_sf <- hospital_poi_sf %>% 
+  st_as_sf(coords = c("coordinates.longitude", "coordinates.latitude"), crs = 4326, agr = "constant")
+
+# Validate geometries
+hospital_poi_sf <- st_make_valid(hospital_poi_sf)
+
+# Check if the geometries are now valid
+print(st_geometry(hospital_poi_sf))  # This should show valid geometries now
+
+# Inspect the first few rows of the data
+head(hospital_poi_sf)
+
+```
+
+## Data Preparation and Spatial Join
+```{r POI-to-Spatial}
+# Transform CRS of hospital_poi_sf to match income_data (EPSG:4269)
+hospital_poi_sf <- st_transform(hospital_poi_sf, st_crs(income_data))
+
+# Proceed with the spatial join after CRS has been matched
+hospital_tracts <- st_join(income_data, hospital_poi_sf, join = st_intersects)
+
+```
+
+
+## Spatial Analysis
+```{r Spatial-Analysis-Distance-Calculation}
+# Create a .402 km (402 meters) buffer around Census tracts
+tract_buffers <- st_buffer(income_data, dist = 0.402)
+
+# Identify which hospitals fall within these buffers
+hospitals_within_buffer <- st_intersects(tract_buffers, hospital_poi_sf)
+
+# Calculate the distance from each Census tract to the nearest hospital
+distances <- st_distance(income_data, hospital_poi_sf)
+
+# Checks if all elements in X are NA; computes min value it they were not
+min_distances <- apply(distances, 1, function(x) if(all(is.na(x))) NA else min(x, na.rm = TRUE))
+
+# Handle non-finite values (e.g., replace infinite distances with NA)
+min_distances <- ifelse(is.infinite(min_distances), NA, min_distances)
+
+# Add the calculated nearest hospital distance as a new column in the income data
+income_data$nearest_hospital_distance <- min_distances
+```
+
+
+## Visualization
+
+
+#### The chunks below are scatter plots of "Median Household Income vs Nearest Hospital Distance", and map for "Hospitals and Income Distribution in the Counties", separately.
+
+```{r Scatterplots}
+# Visualization
+library(ggplot2)
+
+# Creating scatter plot for Median Household Income vs Nearest Hospital Distance
+ggplot(income_data, aes(x = estimate, y = nearest_hospital_distance)) + 
+  geom_point() + 
+  labs(title = "Median Household Income vs Nearest Hospital Distance", 
+       x = "Median Household Income (USD)", 
+       y = "Nearest Hospital Distance (meters)") + 
+  theme_minimal()
+
+```
+
+### Findings_1
+
+
+#### Nearest Hospital Distance vs. Median Household Income (Scatter Plot):
+
+#### There is no strong correlation between hospital proximity and income level, as hospitals are similarly distant across tracts regardless of income. However, outliers suggest certain areas (mainly in mid to soutnern regions) may have poorer access to hospitals, which is both resonable and infferable.
+
+```{r Map}
+ggplot(income_data) + 
+  geom_sf(aes(fill = estimate)) +  # Color tracts based on median income
+  scale_fill_viridis_c(name = "Median Income (USD)", option = "C") +  # color grades for income
+  geom_sf(data = hospital_poi_sf, color = "red", size = 2) +  # Plot hospitals in red
+  labs(title = "Median Household Income and Hospital Distribution", 
+       subtitle = "Red points represent hospital locations") +
+  theme_minimal()
+```
+
+### Findings_2
+
+
+#### Spatial Distribution of Hospitals and Median Income (Map):
+
+#### Hospitals are clustered in wealthier urban areas, with fewer located in lower-income regions, particularly in the south. This suggests potential disparities in healthcare access for low-income communities.
+
+
+
+
+
+
+
+
+## Key insights 
+
+#### The datasets suggest inequitable access to hospitals, with wealthier areas having better proximity. Rural and lower-income regions may face significant healthcare access challenges, indicating a need for policy intervention.
+
